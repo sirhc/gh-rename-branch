@@ -1,0 +1,52 @@
+#!/usr/bin/env zsh
+
+set -euo pipefail
+
+oldbranch=
+newbranch=
+prune=
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            print 'Usage: gh rename-branch [-p] [<oldbranch>] <newbranch>'
+            exit 0
+            ;;
+        -p|--prune)
+            prune=1
+            ;;
+        *)
+            if [[ -z $oldbranch ]]; then
+              oldbranch="$1"
+            elif [[ -z $newbranch ]]; then
+              newbranch="$1"
+            else
+              print "$0: too many arguments" 1>&2
+              exit 2
+            fi
+            ;;
+    esac
+
+    shift
+done
+
+if [[ -z $oldbranch ]]; then
+  print "$0: branch name required" 1>&2
+  exit 1
+fi
+
+if [[ -z $newbranch ]]; then
+  newbranch="$oldbranch"
+  oldbranch="$( git rev-parse --abbrev-ref HEAD )"
+fi
+
+print gh api "repos/{owner}/{repo}/branches/$oldbranch/rename" -f new_name="$newbranch"
+
+print git branch -m "$oldbranch" "$newbranch"
+print git fetch origin
+print git branch -u "origin/$newbranch" "$newbranch"
+print git remote set-head origin -a
+
+if [[ -n $prune ]]; then
+  print git remote prune origin
+fi
